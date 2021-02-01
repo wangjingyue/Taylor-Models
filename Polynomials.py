@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[14]:
 
 
 import math
 from interval import interval, imath, fpu
 
 
-# In[2]:
+# In[42]:
 
 
 class Poly:
@@ -55,7 +55,7 @@ class Poly:
     
     def __add__(self, other):
         coef=[]
-        if isinstance(other,(int,float)):
+        if isinstance(other,(int,float,interval)):
             other=Poly([other],0)
         self1, other1, order=self.fixshape(other)
         for i in range(order+1):
@@ -67,7 +67,7 @@ class Poly:
     
     def __sub__(self, other):
         coef=[]
-        if isinstance(other,(int,float)):
+        if isinstance(other,(int,float,interval)):
             other=Poly([other],0)
         self1, other1, order=self.fixshape(other)
         for i in range(order+1):
@@ -75,13 +75,13 @@ class Poly:
         return Poly(coef,order)
     
     def __rsub__(self,other):
-        if isinstance(other,(int,float)):
+        if isinstance(other,(int,float,interval)):
             other=Poly([other],0)
         return other-self
     
     def __mul__(self, other):
         coef=[]
-        if isinstance(other,(int,float)):
+        if isinstance(other,(int,float,interval)):
             if other==0:
                 return 0
             else:
@@ -99,7 +99,7 @@ class Poly:
         return self*other
     
     def __truediv__(self, other):
-        if isinstance(other,(int,float)):
+        if isinstance(other,(int,float,interval)):
             if other==0:
                 raise Exception("Cannot dividied by zero!")
             else:
@@ -127,6 +127,9 @@ class Poly:
     def __eq__(self,other):
         self1, other1, order=Poly.fixshape(self, other)
         return self1.coef==other1.coef
+    
+    def __neg__(self):
+        return 0-self
     
     def square(self):
         order=self.order*2
@@ -236,11 +239,10 @@ class Poly:
         coef.append(self.coef[1])
         for i in range(2,order+1):
             coef.append(i*self.coef[i])
-        coef.append(0)
-        return Poly(coef,order)
+        return Poly(coef,order-1)
         
     def intePoly(self,x):
-        order=self.order
+        order=self.order+1
         coef=[]
         coef.append(x)
         for i in range(1,order+1):
@@ -272,14 +274,20 @@ class Poly:
     def bound(self,x,c='s'):
         if c=='naive' or c=='n':
             return self.bound_naive(x)
-        elif c=='Horner' or c=='H':
+        elif c=='Horner' or c=='H' or c=='h':
             return self(x)
         elif c=='sub' or c=='s':
             return self.subdivision(x)
-        elif c=='better' or c=='b':
-            return self(x)&self.bound_naive(x)
+        elif c=='root' or c=='r':
+            return self.bound_root(x)
         else:
             raise Exception("The options mush be naive(n), Horner(H), sub(s) or better(b)")
+    
+    def bound_best(self,x,methods):
+        bound=self.bound(x,methods[0])
+        for m in methods:
+            bound=bound&self.bound(x,m)
+        return bound
     
     #subdivision k times
     def binarychop(x):
@@ -292,12 +300,12 @@ class Poly:
             I.append(interval([inf+l,sup]))
         return I
     
-    def subdivision(self,x):
+    def subdivision(self,x,e=1e-5):
         a=self(x) 
         I=Poly.binarychop([x])
         b=self(I[0])|self(I[1])    
         k=(a[0].sup-a[0].inf)-(b[0].sup-b[0].inf)
-        while k>=0.001:
+        while k>=e:
             a=b
             I=Poly.binarychop(I)
             b=self(I[0])
@@ -305,8 +313,40 @@ class Poly:
                 b=b|self(i)
             k=(a[0].sup-a[0].inf)-(b[0].sup-b[0].inf)
         return b  
+    
+    def bound_root(self,x):
+        diff=self.diffPoly()
+        bdiff=diff.bound_naive(x)
+        if bdiff[0].inf>=0 or bdiff[0].sup<=0:
+            return interval[interval(self(x[0].inf)),interval(self(x[0].sup))]
+        else:
+            diff2=diff.diffPoly()
+            roots=x.newton(diff,diff2)
+            bound=interval[interval(self(x[0].inf)),interval(self(x[0].sup))]
+            for i in roots:
+                bound=interval.hull((bound,self(interval(i))))
+            return bound
+            
 
 
+# In[ ]:
+
+
+
+
+
+# In[4]:
+
+
+try:   
+    get_ipython().system('jupyter nbconvert --to python Polynomials.ipynb')
+    # python即转化为.py，script即转化为.html
+    # file_name.ipynb即当前module的文件名
+except:
+    pass   
+
+
+# In[ ]:
 
 
 
